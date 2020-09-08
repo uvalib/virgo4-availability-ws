@@ -52,10 +52,7 @@ func main() {
 	router.GET("/favicon.ico", svc.ignoreFavicon)
 	router.GET("/version", svc.getVersion)
 	router.GET("/healthcheck", svc.healthCheck)
-	api := router.Group("/api")
-	{
-		api.GET("/availability/:id", svc.authMiddleware, svc.getAvailability)
-	}
+	router.GET("/item/:id", svc.authMiddleware, svc.getAvailability)
 
 	portStr := fmt.Sprintf(":%d", cfg.Port)
 	log.Printf("Start service v%s on port %s", version, portStr)
