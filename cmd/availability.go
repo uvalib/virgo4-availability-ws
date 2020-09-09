@@ -440,14 +440,16 @@ func (svc *ServiceContext) removeETASRequestOptions(id string, solrDoc SolrDocum
 			ETASOption.CreateURL = solrDoc.URL[0]
 			ETASOption.Label = "Read via HathiTrust"
 		}
-		// get Scan request
-		ScanRequest := RequestOption{}
-		for _, v := range Result.Availability.RequestOptions {
-			if v.Type == "scan" {
-				ScanRequest = v
+		// replace the hold option
+		for i, v := range Result.Availability.RequestOptions {
+			if v.Type == "hold" {
+				Result.Availability.RequestOptions[i] = ETASOption
+				return
 			}
 		}
-		Result.Availability.RequestOptions = []RequestOption{ETASOption, ScanRequest}
+
+		// Append ETAS link even if there is not a hold button
+		Result.Availability.RequestOptions = append(Result.Availability.RequestOptions, ETASOption)
 	}
 }
 
