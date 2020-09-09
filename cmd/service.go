@@ -108,7 +108,8 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 		}
 	}
 
-	respBytes, illErr := svc.ILLiadRequest("GET", "SystemInfo/SecurePlatformVersion", nil)
+	// ping ILLIad and dont log a successful response cos we dont want to include it in metrics
+	respBytes, illErr := svc.ILLiadRequest("GET", "SystemInfo/SecurePlatformVersion", false,nil)
 	if illErr != nil {
 		log.Printf("ERROR: Failed response from ILLiad PING: %s", illErr.Message)
 		hcMap["illiad"] = hcResp{Healthy: false, Message: illErr.Message}
@@ -139,7 +140,7 @@ type solrRequest struct {
 }
 
 // ILLiadRequest sends a GET/PUT/POST request to ILLiad and returns results
-func (svc *ServiceContext) ILLiadRequest(verb string, url string, data interface{}) ([]byte, *RequestError) {
+func (svc *ServiceContext) ILLiadRequest(verb string, url string, logSuccess bool, data interface{}) ([]byte, *RequestError) {
 	log.Printf("ILLiad  %s request: %s, %+v", verb, url, data)
 	illiadURL := fmt.Sprintf("%s/%s", svc.Illiad.URL, url)
 
@@ -169,7 +170,10 @@ func (svc *ServiceContext) ILLiadRequest(verb string, url string, data interface
 				verb, url, err.StatusCode, err.Message, elapsedMS)
 		}
 	} else {
-		log.Printf("Successful response from ILLiad %s %s. Elapsed Time: %d (ms)", verb, url, elapsedMS)
+		// dont want to log ping results cos that messes up the metrics
+		if logSuccess == true {
+			log.Printf("Successful response from ILLiad %s %s. Elapsed Time: %d (ms)", verb, url, elapsedMS)
+		}
 	}
 	return resp, err
 }
