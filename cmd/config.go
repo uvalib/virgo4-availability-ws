@@ -11,20 +11,13 @@ type SolrConfig struct {
 	Core string
 }
 
-// IlliadConfig contains the configuration necessary to communicate with the Illiad API
-type IlliadConfig struct {
-	URL          string
-	APIKey       string
-	HealthSciURL string
-}
-
 // ServiceConfig defines all of the v4client service configuration parameters
 type ServiceConfig struct {
-	Port   int
-	ILSAPI string
-	JWTKey string
-	Illiad IlliadConfig
-	Solr   SolrConfig
+	Port        int
+	ILSAPI      string
+	JWTKey      string
+	Solr        SolrConfig
+	HSILLiadURL string
 }
 
 // LoadConfig will load the service configuration from env/cmdline
@@ -39,9 +32,7 @@ func loadConfiguration() *ServiceConfig {
 	flag.StringVar(&cfg.Solr.Core, "core", "test_core", "Solr core for journal browse")
 
 	// Illiad communications
-	flag.StringVar(&cfg.Illiad.URL, "illiad", "", "Illiad API URL")
-	flag.StringVar(&cfg.Illiad.APIKey, "illiadkey", "", "Illiad API Key")
-	flag.StringVar(&cfg.Illiad.HealthSciURL, "hsilliad", "", "HS Illiad API URL")
+	flag.StringVar(&cfg.HSILLiadURL, "hsilliad", "", "HS Illiad API URL")
 	flag.Parse()
 
 	if cfg.ILSAPI == "" {
@@ -56,6 +47,11 @@ func loadConfiguration() *ServiceConfig {
 	}
 	if cfg.JWTKey == "" {
 		log.Fatal("jwtkey param is required")
+	}
+	if cfg.HSILLiadURL == "" {
+		log.Fatal("hsilliad param is required")
+	} else {
+		log.Printf("HSIlliad URL: %s", cfg.HSILLiadURL)
 	}
 
 	return &cfg

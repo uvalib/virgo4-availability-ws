@@ -21,8 +21,8 @@ type ServiceContext struct {
 	Version        string
 	ILSAPI         string
 	JWTKey         string
-	Illiad         IlliadConfig
 	Solr           SolrConfig
+	HSILLiadURL    string
 	HTTPClient     *http.Client
 	FastHTTPClient *http.Client
 }
@@ -37,10 +37,10 @@ type RequestError struct {
 // intializeService will initialize the service context based on the config parameters
 func intializeService(version string, cfg *ServiceConfig) (*ServiceContext, error) {
 	ctx := ServiceContext{Version: version,
-		Solr:   cfg.Solr,
-		JWTKey: cfg.JWTKey,
-		ILSAPI: cfg.ILSAPI,
-		Illiad: cfg.Illiad,
+		Solr:        cfg.Solr,
+		HSILLiadURL: cfg.HSILLiadURL,
+		JWTKey:      cfg.JWTKey,
+		ILSAPI:      cfg.ILSAPI,
 	}
 
 	log.Printf("Create HTTP client for external service calls")
@@ -108,15 +108,6 @@ func (svc *ServiceContext) healthCheck(c *gin.Context) {
 		}
 	}
 
-	respBytes, illErr := svc.ILLiadRequest("GET", "SystemInfo/SecurePlatformVersion", nil)
-	if illErr != nil {
-		log.Printf("ERROR: Failed response from ILLiad PING: %s", illErr.Message)
-		hcMap["illiad"] = hcResp{Healthy: false, Message: illErr.Message}
-	} else {
-		hcMap["illiad"] = hcResp{Healthy: true}
-		log.Printf("ILLiad version: %s", respBytes)
-	}
-
 	c.JSON(http.StatusOK, hcMap)
 }
 
@@ -136,42 +127,6 @@ type solrRequestFacet struct {
 type solrRequest struct {
 	Params solrRequestParams           `json:"params"`
 	Facets map[string]solrRequestFacet `json:"facet,omitempty"`
-}
-
-// ILLiadRequest sends a GET/PUT/POST request to ILLiad and returns results
-func (svc *ServiceContext) ILLiadRequest(verb string, url string, data interface{}) ([]byte, *RequestError) {
-	log.Printf("ILLiad  %s request: %s, %+v", verb, url, data)
-	illiadURL := fmt.Sprintf("%s/%s", svc.Illiad.URL, url)
-
-	var illReq *http.Request
-	if data != nil {
-		b, _ := json.Marshal(data)
-		illReq, _ = http.NewRequest(verb, illiadURL, bytes.NewBuffer(b))
-	} else {
-		illReq, _ = http.NewRequest(verb, illiadURL, nil)
-	}
-
-	illReq.Header.Add("Content-Type", "application/json")
-	illReq.Header.Add("ApiKey", svc.Illiad.APIKey)
-
-	startTime := time.Now()
-	rawResp, rawErr := svc.HTTPClient.Do(illReq)
-	resp, err := handleAPIResponse(url, rawResp, rawErr)
-	elapsedNanoSec := time.Since(startTime)
-	elapsedMS := int64(elapsedNanoSec / time.Millisecond)
-
-	if err != nil {
-		if shouldLogAsError(err.StatusCode) {
-			log.Printf("ERROR: Failed response from ILLiad %s %s - %d:%s. Elapsed Time: %d (ms)",
-				verb, url, err.StatusCode, err.Message, elapsedMS)
-		} else {
-			log.Printf("INFO: Response from ILLiad %s %s - %d:%s. Elapsed Time: %d (ms)",
-				verb, url, err.StatusCode, err.Message, elapsedMS)
-		}
-	} else {
-		log.Printf("Successful response from ILLiad %s %s. Elapsed Time: %d (ms)", verb, url, elapsedMS)
-	}
-	return resp, err
 }
 
 // ILSConnectorGet sends a GET request to the ILS connector and returns the response

@@ -189,7 +189,7 @@ func (svc *ServiceContext) updateHSLScanOptions(id string, solrDoc *SolrDocument
 		Label:          "Request a scan",
 		SignInRequired: false,
 		Description:    "Select a portion of this item to be scanned.",
-		CreateURL:      openURLQuery(svc.Illiad.HealthSciURL, solrDoc),
+		CreateURL:      openURLQuery(svc.HSILLiadURL, solrDoc),
 		ItemOptions:    make([]ItemOption, 0),
 	}
 	result.Availability.RequestOptions = append(result.Availability.RequestOptions, hsScan)
