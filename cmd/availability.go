@@ -17,28 +17,27 @@ import (
 // AvailabilityData coming from ILS Connector
 type AvailabilityData struct {
 	Availability struct {
-		ID             string          `json:"title_id"`
-		Columns        []string        `json:"columns"`
-		Items          []Item          `json:"items"`
-		RequestOptions []RequestOption `json:"request_options"`
-		BoundWith      []BoundWithItem `json:"bound_with"`
+		ID             string            `json:"title_id"`
+		Display        map[string]string `json:"display"`
+		Items          []Item            `json:"items"`
+		RequestOptions []RequestOption   `json:"request_options"`
+		BoundWith      []BoundWithItem   `json:"bound_with"`
 	} `json:"availability"`
 }
 
 // Item represents a single item inside availability
 type Item struct {
-	Barcode         string                   `json:"barcode"`
-	OnShelf         bool                     `json:"on_shelf"`
-	Unavailable     bool                     `json:"unavailable"`
-	Notice          string                   `json:"notice"`
-	Fields          []map[string]interface{} `json:"fields"`
-	Library         string                   `json:"library"`
-	LibraryID       string                   `json:"library_id"`
-	CurrentLocation string                   `json:"current_location"`
-	HomeLocationID  string                   `json:"home_location_id"`
-	CallNumber      string                   `json:"call_number"`
-	Volume          string                   `json:"volume"`
-	SCNotes         string                   `json:"special_collections_location"`
+	Barcode         string `json:"barcode"`
+	OnShelf         bool   `json:"on_shelf"`
+	Unavailable     bool   `json:"unavailable"`
+	Notice          string `json:"notice"`
+	Library         string `json:"library"`
+	LibraryID       string `json:"library_id"`
+	CurrentLocation string `json:"current_location"`
+	HomeLocationID  string `json:"home_location_id"`
+	CallNumber      string `json:"call_number"`
+	Volume          string `json:"volume"`
+	SCNotes         string `json:"special_collections_location"`
 }
 
 // BoundWithItem are related items bound with this work
@@ -136,7 +135,14 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 		// Non-Sirsi Item may be found in other places and have availability
 		availResp = AvailabilityData{}
 	}
-	//log.Printf("Availability Response: %+v", availResp)
+
+	// Create a display mapping from item field to label. Localize at some point. Maybe.
+	availResp.Availability.Display = make(map[string]string)
+	availResp.Availability.Display["library"] = "Library"
+	availResp.Availability.Display["current_location"] = "Current Location"
+	availResp.Availability.Display["call_number"] = "Call Number"
+	availResp.Availability.Display["barcode"] = "Barcode"
+
 	solrDoc := svc.getSolrDoc(titleID)
 
 	v4Claims, _ := getJWTClaims(c)
@@ -144,15 +150,15 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 		svc.updateHSLScanOptions(titleID, &solrDoc, &availResp)
 	}
 	if v4Claims.CanPlaceReserve {
-		svc.addStreamingVideoReserve(titleID, solrDoc, &availResp)
+		svc.addStreamingVideoReserve(titleID, &solrDoc, &availResp)
 	}
 
-	svc.appendAeonRequestOptions(titleID, solrDoc, &availResp)
-	svc.removeETASRequestOptions(titleID, solrDoc, &availResp)
+	svc.appendAeonRequestOptions(titleID, &solrDoc, &availResp)
+	svc.removeETASRequestOptions(titleID, &solrDoc, &availResp)
 
 	c.JSON(http.StatusOK, availResp)
-
 }
+
 func (svc *ServiceContext) getSolrDoc(id string) SolrDocument {
 	fields := solrFieldList()
 	solrPath := fmt.Sprintf(`select?fl=%s,&q=id%%3A%s`, fields, id)
@@ -226,10 +232,10 @@ func openURLQuery(baseURL string, doc *SolrDocument) string {
 
 // Adds option for course reserves video request for streaming video items
 // This could be Sirsi "Internet materials", Avalon, Swank, etc.
-func (svc *ServiceContext) addStreamingVideoReserve(id string, SolrDoc SolrDocument, Result *AvailabilityData) {
+func (svc *ServiceContext) addStreamingVideoReserve(id string, solrDoc *SolrDocument, result *AvailabilityData) {
 
-	if (SolrDoc.Pool[0] == "video" && contains(SolrDoc.Location, "Internet materials")) ||
-		contains(SolrDoc.Source, "Avalon") {
+	if (solrDoc.Pool[0] == "video" && contains(solrDoc.Location, "Internet materials")) ||
+		contains(solrDoc.Source, "Avalon") {
 
 		log.Printf("Adding streaming video reserve option")
 		VideoOption := RequestOption{
@@ -240,70 +246,58 @@ func (svc *ServiceContext) addStreamingVideoReserve(id string, SolrDoc SolrDocum
 			StreamingReserve: true,
 			ItemOptions:      []ItemOption{},
 		}
-		Result.Availability.RequestOptions = append(Result.Availability.RequestOptions, VideoOption)
+		result.Availability.RequestOptions = append(result.Availability.RequestOptions, VideoOption)
 	}
 
 	return
 }
 
 // Appends Aeon request to availability response
-func (svc *ServiceContext) appendAeonRequestOptions(id string, SolrDoc SolrDocument, Result *AvailabilityData) {
+func (svc *ServiceContext) appendAeonRequestOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {
 
-	if !((SolrDoc.SCAvailability != "") || contains(SolrDoc.Library, "Special Collections")) {
+	if !((solrDoc.SCAvailability != "") || contains(solrDoc.Library, "Special Collections")) {
 		return
 	}
 
-	processSCAvailabilityStored(Result, SolrDoc)
+	processSCAvailabilityStored(result, solrDoc)
 
-	AeonOption := RequestOption{
+	aeonOption := RequestOption{
 		Type:           "aeon",
 		Label:          "Request this in Special Collections",
 		SignInRequired: false,
 		Description:    "",
-		CreateURL:      createAeonURL(SolrDoc),
-		ItemOptions:    createAeonItemOptions(Result, SolrDoc),
+		CreateURL:      createAeonURL(solrDoc),
+		ItemOptions:    createAeonItemOptions(result, solrDoc),
 	}
-	//log.Printf("Aeon: %+v", AeonOption)
-
-	Result.Availability.RequestOptions = append(Result.Availability.RequestOptions, AeonOption)
-
+	result.Availability.RequestOptions = append(result.Availability.RequestOptions, aeonOption)
 }
 
 // processSCAvailabilityStored adds items stored in sc_availability_stored solr field to availability
-func processSCAvailabilityStored(Result *AvailabilityData, doc SolrDocument) {
+func processSCAvailabilityStored(result *AvailabilityData, doc *SolrDocument) {
 	// If this item has Stored SC data (ArchiveSpace)
 	if doc.SCAvailability == "" {
 		return
 	}
 
 	// Complete required availability fields
-	Result.Availability.ID = doc.ID
+	result.Availability.ID = doc.ID
 
-	var SCItems []Item
-
-	if err := json.Unmarshal([]byte(doc.SCAvailability), &SCItems); err != nil {
+	var scItems []Item
+	if err := json.Unmarshal([]byte(doc.SCAvailability), &scItems); err != nil {
 		log.Printf("Error parsing sc_availability_large_single: %+v", err)
 	}
-	//log.Printf("SCData: %+v", SCItems)
-
-	// add additional item info
-	//for _, item := range SCItems {
-	//  item.Fields = make([]map[string]interface {}, 0)
-	//}
-
-	Result.Availability.Items = SCItems
-
-	// TODO Add columns
-	Result.Availability.Columns = []string{}
+	for _, item := range scItems {
+		result.Availability.Items = append(result.Availability.Items, item)
+	}
 	return
 }
 
 // Creates Aeon ItemOptions based on availability data
-func createAeonItemOptions(Result *AvailabilityData, doc SolrDocument) []ItemOption {
+func createAeonItemOptions(result *AvailabilityData, doc *SolrDocument) []ItemOption {
 
 	// Sirsi Item Options
-	Options := []ItemOption{}
-	for _, item := range Result.Availability.Items {
+	options := []ItemOption{}
+	for _, item := range result.Availability.Items {
 		if item.LibraryID == "SPEC-COLL" || doc.SCAvailability != "" {
 			notes := ""
 			if len(item.SCNotes) > 0 {
@@ -337,15 +331,15 @@ func createAeonItemOptions(Result *AvailabilityData, doc SolrDocument) []ItemOpt
 				SCNotes:  notes,
 				Notice:   item.Notice,
 			}
-			Options = append(Options, scItem)
+			options = append(options, scItem)
 		}
 	}
 
-	return Options
+	return options
 }
 
 // Create OpenUrl for Aeon
-func createAeonURL(doc SolrDocument) string {
+func createAeonURL(doc *SolrDocument) string {
 
 	type aeonRequest struct {
 		Action      int    `url:"Action"`
@@ -427,29 +421,29 @@ func createAeonURL(doc SolrDocument) string {
 }
 
 // Appends Aeon request to availability response
-func (svc *ServiceContext) removeETASRequestOptions(id string, solrDoc SolrDocument, Result *AvailabilityData) {
+func (svc *ServiceContext) removeETASRequestOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {
 
 	if len(solrDoc.HathiETAS) > 0 {
 		log.Printf("ETAS FOUND. Removing request options for %s", id)
-		ETASOption := RequestOption{
+		option := RequestOption{
 			Type:           "directLink",
 			SignInRequired: false,
 			Description:    "Currently, this item is available online as part of <a target=\"_blank\" href=\"https://news.library.virginia.edu/2020/03/31/hathitrust-provides-emergency-temporary-access-to-copyrighted-books/\">Hathi Trust Emergency Temporary Access</a> and the physical item cannot be requested.",
 		}
 		if len(solrDoc.URL) > 0 {
-			ETASOption.CreateURL = solrDoc.URL[0]
-			ETASOption.Label = "Read via HathiTrust"
+			option.CreateURL = solrDoc.URL[0]
+			option.Label = "Read via HathiTrust"
 		}
 		// replace the hold option
-		for i, v := range Result.Availability.RequestOptions {
+		for i, v := range result.Availability.RequestOptions {
 			if v.Type == "hold" {
-				Result.Availability.RequestOptions[i] = ETASOption
+				result.Availability.RequestOptions[i] = option
 				return
 			}
 		}
 
 		// Append ETAS link even if there is not a hold button
-		Result.Availability.RequestOptions = append(Result.Availability.RequestOptions, ETASOption)
+		result.Availability.RequestOptions = append(result.Availability.RequestOptions, option)
 	}
 }
 
