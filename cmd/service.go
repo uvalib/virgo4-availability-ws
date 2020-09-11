@@ -22,6 +22,8 @@ type ServiceContext struct {
 	ILSAPI         string
 	JWTKey         string
 	Solr           SolrConfig
+	Maps           []Map
+	MapLookups     []MapLookup
 	HSILLiadURL    string
 	HTTPClient     *http.Client
 	FastHTTPClient *http.Client
@@ -61,6 +63,7 @@ func intializeService(version string, cfg *ServiceConfig) (*ServiceContext, erro
 		Transport: defaultTransport,
 		Timeout:   5 * time.Second,
 	}
+	ctx.initMapLookups()
 
 	return &ctx, nil
 }
