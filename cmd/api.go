@@ -5,7 +5,7 @@ type AvailabilityData struct {
 	Availability struct {
 		ID             string            `json:"title_id"`
 		Display        map[string]string `json:"display"`
-		Items          []Item            `json:"items"`
+		Items          []*Item           `json:"items"`
 		RequestOptions []RequestOption   `json:"request_options"`
 		BoundWith      []BoundWithItem   `json:"bound_with"`
 	} `json:"availability"`

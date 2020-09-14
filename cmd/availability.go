@@ -48,7 +48,6 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 	availResp.Availability.Display["barcode"] = "Barcode"
 
 	solrDoc := svc.getSolrDoc(titleID)
-	svc.addMapInfo(&availResp)
 
 	v4Claims, _ := getJWTClaims(c)
 	if v4Claims.HomeLibrary == "HEALTHSCI" {
@@ -60,6 +59,7 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 
 	svc.appendAeonRequestOptions(titleID, &solrDoc, &availResp)
 	svc.removeETASRequestOptions(titleID, &solrDoc, &availResp)
+	svc.addMapInfo(availResp.Availability.Items)
 
 	c.JSON(http.StatusOK, availResp)
 }
@@ -143,7 +143,7 @@ func (svc *ServiceContext) addStreamingVideoReserve(id string, solrDoc *SolrDocu
 		contains(solrDoc.Source, "Avalon") {
 
 		log.Printf("Adding streaming video reserve option")
-		VideoOption := RequestOption{
+		option := RequestOption{
 			Type:             "videoReserve",
 			Label:            "Video reserve request",
 			SignInRequired:   true,
@@ -151,7 +151,7 @@ func (svc *ServiceContext) addStreamingVideoReserve(id string, solrDoc *SolrDocu
 			StreamingReserve: true,
 			ItemOptions:      []ItemOption{},
 		}
-		result.Availability.RequestOptions = append(result.Availability.RequestOptions, VideoOption)
+		result.Availability.RequestOptions = append(result.Availability.RequestOptions, option)
 	}
 
 	return
@@ -192,7 +192,7 @@ func processSCAvailabilityStored(result *AvailabilityData, doc *SolrDocument) {
 		log.Printf("Error parsing sc_availability_large_single: %+v", err)
 	}
 	for _, item := range scItems {
-		result.Availability.Items = append(result.Availability.Items, item)
+		result.Availability.Items = append(result.Availability.Items, &item)
 	}
 	return
 }
