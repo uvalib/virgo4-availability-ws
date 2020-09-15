@@ -187,12 +187,13 @@ func processSCAvailabilityStored(result *AvailabilityData, doc *SolrDocument) {
 	// Complete required availability fields
 	result.Availability.ID = doc.ID
 
-	var scItems []Item
+	var scItems []*Item
 	if err := json.Unmarshal([]byte(doc.SCAvailability), &scItems); err != nil {
 		log.Printf("Error parsing sc_availability_large_single: %+v", err)
 	}
+
 	for _, item := range scItems {
-		result.Availability.Items = append(result.Availability.Items, &item)
+		result.Availability.Items = append(result.Availability.Items, item)
 	}
 	return
 }
