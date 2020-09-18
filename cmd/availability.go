@@ -160,11 +160,11 @@ func (svc *ServiceContext) addStreamingVideoReserve(id string, solrDoc *SolrDocu
 // Appends Aeon request to availability response
 func (svc *ServiceContext) appendAeonRequestOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {
 
-	if !((solrDoc.SCAvailability != "") || contains(solrDoc.Library, "Special Collections")) {
+	processSCAvailabilityStored(result, solrDoc)
+
+	if !(contains(solrDoc.Library, "Special Collections")) {
 		return
 	}
-
-	processSCAvailabilityStored(result, solrDoc)
 
 	aeonOption := RequestOption{
 		Type:           "aeon",
