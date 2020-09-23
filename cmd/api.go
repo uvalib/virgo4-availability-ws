@@ -25,7 +25,6 @@ type Item struct {
 	Volume          string `json:"volume"`
 	SCNotes         string `json:"special_collections_location"`
 	Map             Map    `json:"map"`
-	CopyNumber      string `json:"copy_number"`
 }
 
 // Map contains a URL and label for an item location map
