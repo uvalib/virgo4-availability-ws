@@ -331,25 +331,41 @@ func (svc *ServiceContext) removeETASRequestOptions(id string, solrDoc *SolrDocu
 
 	if len(solrDoc.HathiETAS) > 0 {
 		log.Printf("ETAS FOUND. Removing request options for %s", id)
-		option := RequestOption{
+		hathiOption := RequestOption{
 			Type:           "directLink",
 			SignInRequired: false,
-			Description:    "Currently, this item is available online as part of <a target=\"_blank\" href=\"https://news.library.virginia.edu/2020/03/31/hathitrust-provides-emergency-temporary-access-to-copyrighted-books/\">Hathi Trust Emergency Temporary Access</a> and the physical item cannot be requested.",
+			Description: "Use the link above to read this item online through the <a target=\"_blank\" href=\"https://www.library.virginia.edu/services/etas\">Emergency Temporary Access Service.</a>" +
+				"<p>Because of U.S. Copyright law, any item made available online through ETAS cannot be also physically circulated. Buttons above reflect any requests that can be made for this item. <a href=\"https://www.library.virginia.edu/news/covid-19/\" target=\"blank\">Read more about digital and physical access during COVID-19.</a></p>",
 		}
 		if len(solrDoc.URL) > 0 {
-			option.CreateURL = solrDoc.URL[0]
-			option.Label = "Read via HathiTrust"
+			hathiOption.CreateURL = solrDoc.URL[0]
+			hathiOption.Label = "Read via HathiTrust"
 		}
-		// replace the hold option
+
+		// check options
+		holdID := -1
 		for i, v := range result.Availability.RequestOptions {
 			if v.Type == "hold" {
-				result.Availability.RequestOptions[i] = option
-				return
+				holdID = i
 			}
 		}
 
-		// Append ETAS link even if there is not a hold button
-		result.Availability.RequestOptions = append(result.Availability.RequestOptions, option)
+		// Replace hold option with hathi button
+		if holdID != -1 {
+			result.Availability.RequestOptions[holdID] = hathiOption
+		} else {
+			// Append ETAS link even if there is not a hold button
+			result.Availability.RequestOptions = append(result.Availability.RequestOptions, hathiOption)
+		}
+
+		// Remove non-SC items
+		items := []*Item{}
+		for _, v := range result.Availability.Items {
+			if v.LibraryID == "SPEC-COLL" {
+				items = append(items, v)
+			}
+		}
+		result.Availability.Items = items
 	}
 }
 
