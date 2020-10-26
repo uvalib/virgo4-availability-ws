@@ -330,7 +330,7 @@ func createAeonURL(doc *SolrDocument) string {
 func (svc *ServiceContext) removeETASRequestOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {
 
 	// disable requesting for items available via ETAS *and* not in the public domain
-	if len(solrDoc.HathiETAS) > 0 && solrDoc.HathiETAS[0] == "deny" {
+	if len(solrDoc.HathiETAS) > 0 && solrDoc.HathiETAS[0] == "etas" {
 		log.Printf("ETAS FOUND. Removing request options for %s", id)
 		hathiOption := RequestOption{
 			Type:           "directLink",
