@@ -16,7 +16,13 @@ import (
 
 // getAvailability uses ILS Connector V4 API /availability to get details for a Document
 func (svc *ServiceContext) getAvailability(c *gin.Context) {
-	titleID := c.Param("id")
+	rawID := c.Param("id")
+
+	titleID := strings.TrimSpace(rawID)
+	if titleID != rawID {
+		log.Printf("WARNING: corrected suspicious ID: [%s] => [%s]", rawID, titleID)
+	}
+
 	log.Printf("Getting availability for %s with ILS Connector...", titleID)
 
 	availabilityURL := fmt.Sprintf("%s/v4/availability/%s", svc.ILSAPI, titleID)
