@@ -22,31 +22,25 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 	if titleID != rawID {
 		log.Printf("WARNING: corrected suspicious ID: [%s] => [%s]", rawID, titleID)
 	}
-	var availResp AvailabilityData
-	var bodyBytes []byte
-	// Check that the ID matches u####, skip ils-call if not
-	if matched, _ := regexp.MatchString(`^u\d*$`, titleID); matched == true {
-		log.Printf("Getting availability for %s with ILS Connector...", titleID)
 
-		availabilityURL := fmt.Sprintf("%s/v4/availability/%s", svc.ILSAPI, titleID)
-		var ilsErr *RequestError
-		bodyBytes, ilsErr = svc.ILSConnectorGet(availabilityURL, c.GetString("jwt"), svc.HTTPClient)
-		if ilsErr != nil && ilsErr.StatusCode != 404 {
-			log.Printf("ERROR: ILS Connector failure: %+v", ilsErr)
-			c.String(ilsErr.StatusCode, "There was a problem retrieving availability. Please try again later.")
-			return
-		}
+	log.Printf("Getting availability for %s with ILS Connector...", titleID)
 
-		if ilsErr != nil && ilsErr.StatusCode == 503 {
-			log.Printf("ERROR: Sirsi is offline")
-			c.String(ilsErr.StatusCode, "Availability information is currently unavailable. Please try again later.")
-			return
-		}
-	} else {
-		log.Printf("Skipped ILS Connector due to non-Sirsi ID")
+	availabilityURL := fmt.Sprintf("%s/v4/availability/%s", svc.ILSAPI, titleID)
+	bodyBytes, ilsErr := svc.ILSConnectorGet(availabilityURL, c.GetString("jwt"), svc.HTTPClient)
+	if ilsErr != nil && ilsErr.StatusCode != 404 {
+		log.Printf("ERROR: ILS Connector failure: %+v", ilsErr)
+		c.String(ilsErr.StatusCode, "There was a problem retrieving availability. Please try again later.")
+		return
+	}
+
+	if ilsErr != nil && ilsErr.StatusCode == 503 {
+		log.Printf("ERROR: Sirsi is offline")
+		c.String(ilsErr.StatusCode, "Availability information is currently unavailable. Please try again later.")
+		return
 	}
 
 	// Convert from json
+	var availResp AvailabilityData
 	if err := json.Unmarshal(bodyBytes, &availResp); err != nil {
 		// Non-Sirsi Item may be found in other places and have availability
 		availResp = AvailabilityData{}
