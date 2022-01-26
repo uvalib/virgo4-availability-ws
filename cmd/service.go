@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -14,19 +15,24 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
+	"gopkg.in/gomail.v2"
 )
 
 // ServiceContext contains common data used by all handlers
 type ServiceContext struct {
-	Version        string
-	ILSAPI         string
-	JWTKey         string
-	Solr           SolrConfig
-	Maps           []Map
-	MapLookups     []MapLookup
-	HSILLiadURL    string
-	HTTPClient     *http.Client
-	FastHTTPClient *http.Client
+	Version            string
+	VirgoURL           string
+	ILSAPI             string
+	JWTKey             string
+	Solr               SolrConfig
+	Maps               []Map
+	MapLookups         []MapLookup
+	HSILLiadURL        string
+	CourseReserveEmail string
+	LawReserveEmail    string
+	HTTPClient         *http.Client
+	FastHTTPClient     *http.Client
+	SMTP               SMTPConfig
 }
 
 // RequestError contains http status code and message for a
@@ -39,10 +45,18 @@ type RequestError struct {
 // intializeService will initialize the service context based on the config parameters
 func intializeService(version string, cfg *ServiceConfig) (*ServiceContext, error) {
 	ctx := ServiceContext{Version: version,
-		Solr:        cfg.Solr,
-		HSILLiadURL: cfg.HSILLiadURL,
-		JWTKey:      cfg.JWTKey,
-		ILSAPI:      cfg.ILSAPI,
+		VirgoURL:           cfg.VirgoURL,
+		Solr:               cfg.Solr,
+		SMTP:               cfg.SMTP,
+		HSILLiadURL:        cfg.HSILLiadURL,
+		CourseReserveEmail: cfg.CourseReserveEmail,
+		LawReserveEmail:    cfg.LawReserveEmail,
+		JWTKey:             cfg.JWTKey,
+		ILSAPI:             cfg.ILSAPI,
+	}
+
+	if ctx.SMTP.DevMode {
+		log.Printf("Using dev mode for SMTP; all messages will be logged instead of delivered")
 	}
 
 	log.Printf("Create HTTP client for external service calls")
@@ -299,4 +313,49 @@ func sanitizeURL(url string) string {
 	}
 
 	return url
+}
+
+type emailRequest struct {
+	Subject string
+	To      []string
+	ReplyTo string
+	CC      string
+	From    string
+	Body    string
+}
+
+func (svc *ServiceContext) sendEmail(request *emailRequest) error {
+	mail := gomail.NewMessage()
+	mail.SetHeader("MIME-version", "1.0")
+	mail.SetHeader("Content-Type", "text/plain; charset=\"UTF-8\"")
+	mail.SetHeader("Subject", request.Subject)
+	mail.SetHeader("To", request.To...)
+	mail.SetHeader("From", request.From)
+	if request.ReplyTo != "" {
+		mail.SetHeader("Reply-To", request.ReplyTo)
+	}
+	if len(request.CC) > 0 {
+		mail.SetHeader("Cc", request.CC)
+	}
+	mail.SetBody("text/plain", request.Body)
+
+	if svc.SMTP.DevMode {
+		log.Printf("Email is in dev mode. Logging message instead of sending")
+		log.Printf("==================================================")
+		mail.WriteTo(log.Writer())
+		log.Printf("==================================================")
+		return nil
+	}
+
+	log.Printf("Sending %s email to %s", request.Subject, strings.Join(request.To, ","))
+	if svc.SMTP.Pass != "" {
+		dialer := gomail.Dialer{Host: svc.SMTP.Host, Port: svc.SMTP.Port, Username: svc.SMTP.User, Password: svc.SMTP.Pass}
+		dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+		return dialer.DialAndSend(mail)
+	}
+
+	log.Printf("Sending email with no auth")
+	dialer := gomail.Dialer{Host: svc.SMTP.Host, Port: svc.SMTP.Port}
+	dialer.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+	return dialer.DialAndSend(mail)
 }

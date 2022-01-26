@@ -8,6 +8,7 @@ WORKDIR /build
 COPY go.mod go.sum Makefile ./
 COPY cmd ./cmd
 COPY data ./data
+COPY templates ./templates
 ARG GIT_COMMIT
 RUN make linux GIT_COMMIT="$GIT_COMMIT"
 
@@ -42,11 +43,13 @@ CMD scripts/entry.sh
 COPY package/data/container_bash_profile /home/webservice/.profile
 COPY package/scripts/entry.sh $APP_HOME/scripts/entry.sh
 COPY data $APP_HOME/bin/data
+COPY --from=builder /build/bin/templates $APP_HOME/bin/templates
 COPY --from=builder /build/bin/v4availability.linux $APP_HOME/bin/v4availability
 COPY data/* $APP_HOME/bin/data/
 
 # Ensure permissions are correct
 RUN chown webservice:webservice /home/webservice/.profile $APP_HOME/scripts/entry.sh $APP_HOME/bin/v4availability $APP_HOME/bin/data && chmod 755 /home/webservice/.profile $APP_HOME/scripts/entry.sh $APP_HOME/bin/v4availability $APP_HOME/bin/data
+RUN chown -R $APP_HOME/bin/templates && chmod -R 755 $APP_HOME/bin/templates
 
 # Add the build tag
 ARG BUILD_TAG
