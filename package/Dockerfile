@@ -32,7 +32,7 @@ ENV APP_HOME /availability-ws
 WORKDIR $APP_HOME
 
 # Create necessary directories
-RUN mkdir -p $APP_HOME $APP_HOME/bin $APP_HOME/scripts $APP_HOME/bin/data
+RUN mkdir -p $APP_HOME $APP_HOME/bin $APP_HOME/scripts $APP_HOME/bin/data $APP_HOME/bin/templates
 RUN chown -R webservice $APP_HOME && chgrp -R webservice $APP_HOME
 
 # port and run command
@@ -43,13 +43,13 @@ CMD scripts/entry.sh
 COPY package/data/container_bash_profile /home/webservice/.profile
 COPY package/scripts/entry.sh $APP_HOME/scripts/entry.sh
 COPY data $APP_HOME/bin/data
-COPY --from=builder /build/bin/templates $APP_HOME/bin/templates
+COPY templates $APP_HOME/bin/templates
 COPY --from=builder /build/bin/v4availability.linux $APP_HOME/bin/v4availability
 COPY data/* $APP_HOME/bin/data/
+COPY templates/* $APP_HOME/bin/templates/
 
 # Ensure permissions are correct
-RUN chown webservice:webservice /home/webservice/.profile $APP_HOME/scripts/entry.sh $APP_HOME/bin/v4availability $APP_HOME/bin/data && chmod 755 /home/webservice/.profile $APP_HOME/scripts/entry.sh $APP_HOME/bin/v4availability $APP_HOME/bin/data
-RUN chown -R $APP_HOME/bin/templates && chmod -R 755 $APP_HOME/bin/templates
+RUN chown webservice:webservice /home/webservice/.profile $APP_HOME/scripts/entry.sh $APP_HOME/bin/v4availability $APP_HOME/bin/data $APP_HOME/bin/templates && chmod 755 /home/webservice/.profile $APP_HOME/scripts/entry.sh $APP_HOME/bin/v4availability $APP_HOME/bin/data $APP_HOME/bin/templates
 
 # Add the build tag
 ARG BUILD_TAG
