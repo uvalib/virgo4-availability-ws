@@ -54,23 +54,24 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 	availResp.Availability.Display["barcode"] = "Barcode"
 
 	solrDoc := svc.getSolrDoc(titleID)
+	if solrDoc != nil {
+		v4Claims, _ := getJWTClaims(c)
+		if v4Claims.HomeLibrary == "HEALTHSCI" {
+			svc.updateHSLScanOptions(titleID, solrDoc, &availResp)
+		}
+		if v4Claims.CanPlaceReserve {
+			svc.addStreamingVideoReserve(titleID, solrDoc, &availResp)
+		}
 
-	v4Claims, _ := getJWTClaims(c)
-	if v4Claims.HomeLibrary == "HEALTHSCI" {
-		svc.updateHSLScanOptions(titleID, &solrDoc, &availResp)
+		svc.appendAeonRequestOptions(titleID, solrDoc, &availResp)
+		svc.removeETASRequestOptions(titleID, solrDoc, &availResp)
 	}
-	if v4Claims.CanPlaceReserve {
-		svc.addStreamingVideoReserve(titleID, &solrDoc, &availResp)
-	}
-
-	svc.appendAeonRequestOptions(titleID, &solrDoc, &availResp)
-	svc.removeETASRequestOptions(titleID, &solrDoc, &availResp)
 	svc.addMapInfo(availResp.Availability.Items)
 
 	c.JSON(http.StatusOK, availResp)
 }
 
-func (svc *ServiceContext) getSolrDoc(id string) SolrDocument {
+func (svc *ServiceContext) getSolrDoc(id string) *SolrDocument {
 	fields := solrFieldList()
 	solrPath := fmt.Sprintf(`select?fl=%s,&q=id%%3A%s`, fields, id)
 
@@ -78,15 +79,18 @@ func (svc *ServiceContext) getSolrDoc(id string) SolrDocument {
 	if solrErr != nil {
 		log.Printf("ERROR: Solr request for Aeon info failed: %s", solrErr.Message)
 	}
-	var SolrResp SolrResponse
-	if err := json.Unmarshal(respBytes, &SolrResp); err != nil {
+	var solrResp SolrResponse
+	if err := json.Unmarshal(respBytes, &solrResp); err != nil {
 		log.Printf("ERROR: Unable to parse solr response: %s.", err.Error())
 	}
-	if SolrResp.Response.NumFound != 1 {
-		log.Printf("ERROR: Availability - More than one record found for the cat key: %s", id)
+	if solrResp.Response.NumFound == 0 {
+		log.Printf("ERROR: no solr document found for %s", id)
+		return nil
+	} else if solrResp.Response.NumFound > 1 {
+		log.Printf("WARNING: more than one record found for the id: %s", id)
 	}
-	SolrDoc := SolrResp.Response.Docs[0]
-	return SolrDoc
+	solrDoc := solrResp.Response.Docs[0]
+	return &solrDoc
 }
 
 func (svc *ServiceContext) updateHSLScanOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {

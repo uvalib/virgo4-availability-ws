@@ -117,10 +117,12 @@ func (svc *ServiceContext) validateCourseReserves(c *gin.Context) {
 		for _, item := range resp {
 			if item.Reserve == false || item.IsVideo == false {
 				solrDoc := svc.getSolrDoc(item.ID)
-				if (solrDoc.Pool[0] == "video" && contains(solrDoc.Location, "Internet materials")) || contains(solrDoc.Source, "Avalon") {
-					log.Printf("INFO: %s is a video", item.ID)
-					item.IsVideo = true
-					item.Reserve = true
+				if solrDoc != nil {
+					if (solrDoc.Pool[0] == "video" && contains(solrDoc.Location, "Internet materials")) || contains(solrDoc.Source, "Avalon") {
+						log.Printf("INFO: %s is a video", item.ID)
+						item.IsVideo = true
+						item.Reserve = true
+					}
 				}
 			}
 		}
