@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"text/template"
 
 	"github.com/gin-gonic/gin"
@@ -79,8 +81,237 @@ type validateResponse struct {
 	IsVideo bool   `json:"is_video"`
 }
 
+type reserveItem struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	Author     string `json:"author"`
+	CallNumber string `json:"callNumber"`
+	Library    string `json:"library"`
+}
+
+type instructorItems struct {
+	InstructorName string        `json:"instructorName"`
+	Items          []reserveItem `json:"items"`
+}
+type courseSearchResponse struct {
+	CourseName  string            `json:"courseName"`
+	CourseID    string            `json:"courseID"`
+	Instructors []instructorItems `json:"instructors"`
+}
+
+type courseItems struct {
+	CourseName string        `json:"courseName"`
+	CourseID   string        `json:"courseID"`
+	Items      []reserveItem `json:"items"`
+}
+type instructorSearchResponse struct {
+	InstructorName string        `json:"instructorName"`
+	Courses        []courseItems `json:"courses"`
+}
+
+type solrReservesResponse struct {
+	Response struct {
+		Docs     []solrReservesHit `json:"docs,omitempty"`
+		NumFound int               `json:"numFound,omitempty"`
+	} `json:"response,omitempty"`
+}
+
+type solrReservesHit struct {
+	ID          string   `json:"id"`
+	Title       []string `json:"title_a"`
+	Author      []string `json:"work_primary_author_a"`
+	CallNumber  []string `json:"call_number_a"`
+	Library     []string `json:"library_a"`
+	ReserveInfo []string `json:"reserve_id_course_name_a"`
+}
+
 func (svc *ServiceContext) searchReserves(c *gin.Context) {
-	c.String(http.StatusNotImplemented, "not yet")
+	searchType := c.Query("type")
+	if searchType != "instructor_name" && searchType != "course_name" && searchType != "course_id" {
+		log.Printf("ERROR: invalid course reserves search type: %s", searchType)
+		c.String(http.StatusBadRequest, fmt.Sprintf("%s is not a valid search type", searchType))
+		return
+	}
+	rawQueryStr := c.Query("query")
+	if len(rawQueryStr) < 2 {
+		log.Printf("ERROR: invalid query [%s]", rawQueryStr)
+		c.String(http.StatusBadRequest, "At least 2 characters are required in a query")
+		return
+	}
+	queryStr := rawQueryStr
+	if strings.Contains(queryStr, "*") == false {
+		queryStr += "*"
+	}
+
+	claims, err := getJWTClaims(c)
+	if err != nil {
+		log.Printf("ERROR: search reserves without claims: %s", err.Error())
+		c.String(http.StatusForbidden, "not authorized")
+		return
+	}
+	log.Printf("INFO: user [%s] is searching course reserves [%s] for [%s]", claims.UserID, searchType, queryStr)
+
+	fl := url.QueryEscape("id,reserve_id_course_name_a,title_a,work_primary_author_a,call_number_a,library_a")
+	queryParam := "reserve_id_a"
+	if searchType == "instructor_name" {
+		queryParam = "reserve_instructor_t"
+	} else if searchType == "course_name" {
+		queryParam = "reserve_course_name_t"
+	}
+	queryParam = fmt.Sprintf("%s:%s", queryParam, queryStr)
+	solrURL := fmt.Sprintf("select?fl=%s&q=%s&rows=5000", fl, url.QueryEscape(queryParam))
+
+	respBytes, solrErr := svc.SolrGet(solrURL)
+	if solrErr != nil {
+		log.Printf("ERROR: solr course reserves search failed: %s", solrErr.Message)
+	}
+	var solrResp solrReservesResponse
+	if err := json.Unmarshal(respBytes, &solrResp); err != nil {
+		log.Printf("ERROR: unable to parse solr response: %s.", err.Error())
+	}
+
+	if searchType == "instructor_name" {
+		reserves := extractInstructorReserves(rawQueryStr, solrResp.Response.Docs)
+		c.JSON(http.StatusOK, reserves)
+		return
+	}
+
+	reserves := extractCourseReserves(searchType, rawQueryStr, solrResp.Response.Docs)
+	c.JSON(http.StatusOK, reserves)
+}
+
+func extractCourseReserves(tgtType string, tgtCourse string, docs []solrReservesHit) []courseSearchResponse {
+	log.Printf("INFO: extract instructor course reserves for %s %s", tgtType, tgtCourse)
+	type courseIdentifier struct {
+		ID   string
+		Name string
+	}
+	// parse solr response into a map of instructor name -> []courseItems
+	raw := make(map[courseIdentifier][]*instructorItems)
+	for _, doc := range docs {
+		for _, reserve := range doc.ReserveInfo {
+			// format: courseID | courseName | instructor
+			reserveInfo := strings.Split(reserve, "|")
+			courseID := reserveInfo[0]
+			courseName := reserveInfo[1]
+			instructor := reserveInfo[2]
+			courseKeyStr := courseID
+			if tgtType == "course_name" {
+				courseKeyStr = courseName
+			}
+
+			if strings.Index(strings.ToLower(courseKeyStr), strings.ToLower(tgtCourse)) != 0 {
+				log.Printf("INFO: skip non-matching %s %s vs %s", tgtType, courseKeyStr, tgtCourse)
+				continue
+			}
+
+			courseKey := courseIdentifier{ID: courseID, Name: courseName}
+			item := reserveItem{ID: doc.ID, Title: doc.Title[0], Author: strings.Join(doc.Author, "; "),
+				CallNumber: strings.Join(doc.CallNumber, ", "), Library: strings.Join(doc.Library, ", ")}
+
+			courseInstructors, ok := raw[courseKey]
+			if ok == false {
+				// first appearance new course, tie item to instructor, add to list and map
+				courseInstructors = make([]*instructorItems, 0)
+				newInstructor := instructorItems{InstructorName: instructor, Items: make([]reserveItem, 0)}
+				newInstructor.Items = append(newInstructor.Items, item)
+				courseInstructors = append(courseInstructors, &newInstructor)
+				raw[courseKey] = courseInstructors
+			} else {
+				// course exists, see if instructor exists in the current list of instructors
+				var tgtInstructor *instructorItems
+				for _, courseInstruct := range courseInstructors {
+					if courseInstruct.InstructorName == instructor {
+						// instructor already exists, we'll just add items to it
+						tgtInstructor = courseInstruct
+						break
+					}
+				}
+				if tgtInstructor == nil {
+					// add new course to list of courses for this instructor
+					tgtInstructor = &instructorItems{InstructorName: instructor, Items: make([]reserveItem, 0)}
+					courseInstructors = append(courseInstructors, tgtInstructor)
+				}
+
+				// add the item to the course
+				tgtInstructor.Items = append(tgtInstructor.Items, item)
+			}
+		}
+	}
+
+	out := make([]courseSearchResponse, 0)
+	for key, instructors := range raw {
+		csr := courseSearchResponse{CourseName: key.Name, CourseID: key.ID, Instructors: make([]instructorItems, 0)}
+		for _, inst := range instructors {
+			log.Printf("%s=%+v", key, *inst)
+			csr.Instructors = append(csr.Instructors, *inst)
+		}
+		out = append(out, csr)
+	}
+	return out
+}
+
+func extractInstructorReserves(tgtInstructor string, docs []solrReservesHit) []instructorSearchResponse {
+	log.Printf("INFO: extract course course reserves instructor %s", tgtInstructor)
+	// parse solr response into a map of instructor name -> []courseItems
+	raw := make(map[string][]*courseItems)
+	for _, doc := range docs {
+		for _, reserve := range doc.ReserveInfo {
+			// format: courseID | courseName | instructor
+			reserveInfo := strings.Split(reserve, "|")
+			courseID := reserveInfo[0]
+			courseName := reserveInfo[1]
+			instructor := reserveInfo[2]
+			if strings.Index(strings.ToLower(instructor), strings.ToLower(tgtInstructor)) != 0 {
+				log.Printf("INFO: skip non-matching instructor %s vs %s", instructor, tgtInstructor)
+				continue
+			}
+
+			item := reserveItem{ID: doc.ID, Title: doc.Title[0], Author: strings.Join(doc.Author, "; "),
+				CallNumber: strings.Join(doc.CallNumber, ", "), Library: strings.Join(doc.Library, ", ")}
+
+			instructorCourses, ok := raw[instructor]
+			if ok == false {
+				// first appearance of instructor. start a new course list, tie it to the instructor
+				// and add it all to the raw data map
+				instructorCourses = make([]*courseItems, 0)
+				newCourse := courseItems{CourseID: courseID, CourseName: courseName, Items: make([]reserveItem, 0)}
+				newCourse.Items = append(newCourse.Items, item)
+				instructorCourses = append(instructorCourses, &newCourse)
+				raw[instructor] = instructorCourses
+			} else {
+				// instructor  exists, see if this course exists in the instructor courses
+				var tgtCourse *courseItems
+				for _, course := range instructorCourses {
+					if course.CourseID == courseID {
+						// course already exists, we'll just add items to it
+						tgtCourse = course
+						break
+					}
+				}
+				if tgtCourse == nil {
+					// add new course to list of courses for this instructor
+					tgtCourse = &courseItems{CourseID: courseID, CourseName: courseName, Items: make([]reserveItem, 0)}
+					instructorCourses = append(instructorCourses, tgtCourse)
+				}
+
+				// add the item to the course
+				tgtCourse.Items = append(tgtCourse.Items, item)
+			}
+		}
+	}
+
+	// convert the map to the output response format
+	out := make([]instructorSearchResponse, 0)
+	for instructor, courses := range raw {
+		isr := instructorSearchResponse{InstructorName: instructor, Courses: make([]courseItems, 0)}
+		for _, course := range courses {
+			isr.Courses = append(isr.Courses, *course)
+		}
+		out = append(out, isr)
+	}
+
+	return out
 }
 
 func (svc *ServiceContext) validateCourseReserves(c *gin.Context) {
