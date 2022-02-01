@@ -133,11 +133,11 @@ func (svc *ServiceContext) searchReserves(c *gin.Context) {
 		return
 	}
 	rawQueryStr := c.Query("query")
-	if len(rawQueryStr) < 2 {
-		log.Printf("ERROR: invalid query [%s]", rawQueryStr)
-		c.String(http.StatusBadRequest, "At least 2 characters are required in a query")
-		return
-	}
+	// if len(rawQueryStr) < 2 {
+	// 	log.Printf("ERROR: invalid query [%s]", rawQueryStr)
+	// 	c.String(http.StatusBadRequest, "At least 2 characters are required in a query")
+	// 	return
+	// }
 	queryStr := rawQueryStr
 	if strings.Contains(queryStr, "*") == false {
 		queryStr += "*"
@@ -169,6 +169,7 @@ func (svc *ServiceContext) searchReserves(c *gin.Context) {
 	if err := json.Unmarshal(respBytes, &solrResp); err != nil {
 		log.Printf("ERROR: unable to parse solr response: %s.", err.Error())
 	}
+	log.Printf("INFO: found [%d] matches", solrResp.Response.NumFound)
 
 	if searchType == "instructor_name" {
 		reserves := extractInstructorReserves(rawQueryStr, solrResp.Response.Docs)
