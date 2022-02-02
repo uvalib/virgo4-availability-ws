@@ -133,11 +133,6 @@ func (svc *ServiceContext) searchReserves(c *gin.Context) {
 		return
 	}
 	rawQueryStr := c.Query("query")
-	// if len(rawQueryStr) < 2 {
-	// 	log.Printf("ERROR: invalid query [%s]", rawQueryStr)
-	// 	c.String(http.StatusBadRequest, "At least 2 characters are required in a query")
-	// 	return
-	// }
 	queryStr := rawQueryStr
 	if strings.Contains(queryStr, "*") == false {
 		queryStr += "*"
@@ -154,12 +149,16 @@ func (svc *ServiceContext) searchReserves(c *gin.Context) {
 	fl := url.QueryEscape("id,reserve_id_course_name_a,title_a,work_primary_author_a,call_number_a,library_a")
 	queryParam := "reserve_id_a"
 	if searchType == "instructor_name" {
-		queryParam = "reserve_instructor_t"
+		queryParam = "reserve_instructor_tl"
 	} else if searchType == "course_name" {
-		queryParam = "reserve_course_name_t"
+		queryParam = "reserve_course_name_tl"
+	} else {
+		// course IDs are in all upper case. force query to match
+		queryStr = strings.ToUpper(queryStr)
 	}
+	queryStr = strings.ReplaceAll(queryStr, " ", "+")
 	queryParam = fmt.Sprintf("%s:%s", queryParam, queryStr)
-	solrURL := fmt.Sprintf("select?fl=%s&q=%s&rows=5000", fl, url.QueryEscape(queryParam))
+	solrURL := fmt.Sprintf("select?fl=%s&q=%s&rows=5000", fl, queryParam)
 
 	respBytes, solrErr := svc.SolrGet(solrURL)
 	if solrErr != nil {
