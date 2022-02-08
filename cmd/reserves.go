@@ -86,7 +86,6 @@ type reserveItem struct {
 	Title      string `json:"title"`
 	Author     string `json:"author"`
 	CallNumber string `json:"callNumber"`
-	Library    string `json:"library"`
 }
 
 type instructorItems struct {
@@ -121,7 +120,6 @@ type solrReservesHit struct {
 	Title       []string `json:"title_a"`
 	Author      []string `json:"work_primary_author_a"`
 	CallNumber  []string `json:"call_number_a"`
-	Library     []string `json:"library_a"`
 	ReserveInfo []string `json:"reserve_id_course_name_a"`
 }
 
@@ -146,7 +144,7 @@ func (svc *ServiceContext) searchReserves(c *gin.Context) {
 	}
 	log.Printf("INFO: user [%s] is searching course reserves [%s] for [%s]", claims.UserID, searchType, queryStr)
 
-	fl := url.QueryEscape("id,reserve_id_course_name_a,title_a,work_primary_author_a,call_number_a,library_a")
+	fl := url.QueryEscape("id,reserve_id_course_name_a,title_a,work_primary_author_a,call_number_a")
 	queryParam := "reserve_id_a"
 	if searchType == "instructor_name" {
 		queryParam = "reserve_instructor_tl"
@@ -206,8 +204,9 @@ func extractCourseReserves(tgtType string, tgtCourse string, docs []solrReserves
 			}
 
 			courseKey := courseIdentifier{ID: courseID, Name: courseName}
-			item := reserveItem{ID: doc.ID, Title: doc.Title[0], Author: strings.Join(doc.Author, "; "),
-				CallNumber: strings.Join(doc.CallNumber, ", "), Library: strings.Join(doc.Library, ", ")}
+			item := reserveItem{ID: doc.ID, Title: doc.Title[0],
+				Author:     strings.Join(doc.Author, "; "),
+				CallNumber: strings.Join(doc.CallNumber, ", ")}
 
 			courseInstructors, ok := raw[courseKey]
 			if ok == false {
@@ -267,8 +266,9 @@ func extractInstructorReserves(tgtInstructor string, docs []solrReservesHit) []i
 				continue
 			}
 
-			item := reserveItem{ID: doc.ID, Title: doc.Title[0], Author: strings.Join(doc.Author, "; "),
-				CallNumber: strings.Join(doc.CallNumber, ", "), Library: strings.Join(doc.Library, ", ")}
+			item := reserveItem{ID: doc.ID, Title: doc.Title[0],
+				Author:     strings.Join(doc.Author, "; "),
+				CallNumber: strings.Join(doc.CallNumber, ", ")}
 
 			instructorCourses, ok := raw[instructor]
 			if ok == false {
