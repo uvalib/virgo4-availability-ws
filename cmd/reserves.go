@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sort"
 	"strings"
 	"text/template"
 
@@ -234,6 +235,17 @@ func extractCourseReserves(tgtCourseID string, docs []solrReservesHit) []*course
 		}
 	}
 
+	for _, csr := range out {
+		sort.Slice(csr.Instructors, func(i, j int) bool {
+			return csr.Instructors[i].InstructorName < csr.Instructors[j].InstructorName
+		})
+		for _, inst := range csr.Instructors {
+			sort.Slice(inst.Items, func(i, j int) bool {
+				return inst.Items[i].Title < inst.Items[j].Title
+			})
+		}
+	}
+
 	return out
 }
 
@@ -265,7 +277,7 @@ func extractInstructorReserves(tgtInstructor string, docs []solrReservesHit) []*
 				}
 			}
 			if tgtInstructor == nil {
-				log.Printf("INFO: create new record for instructor %s", instructor)
+				// log.Printf("INFO: create new record for instructor %s", instructor)
 				newInstructor := instructorSearchResponse{InstructorName: instructor}
 				tgtInstructor = &newInstructor
 				out = append(out, tgtInstructor)
@@ -276,7 +288,7 @@ func extractInstructorReserves(tgtInstructor string, docs []solrReservesHit) []*
 				if course.CourseID == courseID {
 					found = true
 					if itemExists(course.Items, item.ID) == false {
-						log.Printf("INFO: append item to existing course...")
+						// log.Printf("INFO: append item to existing course...")
 						course.Items = append(course.Items, item)
 						break
 					}
@@ -284,12 +296,22 @@ func extractInstructorReserves(tgtInstructor string, docs []solrReservesHit) []*
 			}
 
 			if found == false {
-				log.Printf("INFO: create new record for course %s", courseID)
+				// log.Printf("INFO: create new record for course %s", courseID)
 				newCourse := courseItems{CourseID: courseID, CourseName: courseName}
 				newCourse.Items = append(newCourse.Items, item)
 				tgtInstructor.Courses = append(tgtInstructor.Courses, &newCourse)
-				log.Printf("INFO: new course: %v", newCourse)
 			}
+		}
+	}
+
+	for _, isr := range out {
+		sort.Slice(isr.Courses, func(i, j int) bool {
+			return isr.Courses[i].CourseID < isr.Courses[j].CourseID
+		})
+		for _, crs := range isr.Courses {
+			sort.Slice(crs.Items, func(i, j int) bool {
+				return crs.Items[i].Title < crs.Items[j].Title
+			})
 		}
 	}
 
