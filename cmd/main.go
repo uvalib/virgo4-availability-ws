@@ -10,7 +10,7 @@ import (
 )
 
 // Version of the service
-const version = "1.1.1"
+const version = "1.1.2"
 
 func main() {
 	log.Printf("===> V4 availability service staring up <===")
