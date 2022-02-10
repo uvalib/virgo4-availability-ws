@@ -149,11 +149,17 @@ func (svc *ServiceContext) searchReserves(c *gin.Context) {
 	queryParam := "reserve_id_a"
 	if searchType == "instructor_name" {
 		queryParam = "reserve_instructor_tl"
+		queryStr = url.PathEscape(queryStr)
+		// working format example: q=reserve_instructor_tl:beardsley%2C%20s*
 	} else {
 		// course IDs are in all upper case. force query to match
 		queryStr = strings.ToUpper(queryStr)
+		if strings.Index(queryStr, " ") != -1 {
+			queryStr = strings.ReplaceAll(queryStr, " ", "\\ ")
+			queryStr = url.QueryEscape(queryStr)
+		}
 	}
-	queryStr = strings.ReplaceAll(queryStr, " ", "+")
+
 	queryParam = fmt.Sprintf("%s:%s", queryParam, queryStr)
 	solrURL := fmt.Sprintf("select?fl=%s&q=%s&rows=5000", fl, queryParam)
 
