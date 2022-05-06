@@ -40,10 +40,11 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 	}
 
 	// Convert from json
-	var availResp AvailabilityData
+	availResp := AvailabilityData{}
 	if err := json.Unmarshal(bodyBytes, &availResp); err != nil {
 		// Non-Sirsi Item may be found in other places and have availability
-		availResp = AvailabilityData{}
+		// ID not provided by ILS connector, add it now
+		availResp.Availability.ID = rawID
 	}
 
 	// Create a display mapping from item field to label. Localize at some point. Maybe.
