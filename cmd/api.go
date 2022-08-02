@@ -13,18 +13,19 @@ type AvailabilityData struct {
 
 // Item represents a single item inside availability
 type Item struct {
-	Barcode         string `json:"barcode"`
-	OnShelf         bool   `json:"on_shelf"`
-	Unavailable     bool   `json:"unavailable"`
-	Notice          string `json:"notice"`
-	Library         string `json:"library"`
-	LibraryID       string `json:"library_id"`
-	CurrentLocation string `json:"current_location"`
-	HomeLocationID  string `json:"home_location_id"`
-	CallNumber      string `json:"call_number"`
-	Volume          string `json:"volume"`
-	SCNotes         string `json:"special_collections_location"`
-	Map             Map    `json:"map"`
+	Barcode           string `json:"barcode"`
+	OnShelf           bool   `json:"on_shelf"`
+	Unavailable       bool   `json:"unavailable"`
+	Notice            string `json:"notice"`
+	Library           string `json:"library"`
+	LibraryID         string `json:"library_id"`
+	CurrentLocation   string `json:"current_location"`
+	CurrentLocationID string `json:"current_location_id"`
+	HomeLocationID    string `json:"home_location_id"`
+	CallNumber        string `json:"call_number"`
+	Volume            string `json:"volume"`
+	SCNotes           string `json:"special_collections_location"`
+	Map               Map    `json:"map"`
 }
 
 // Map contains a URL and label for an item location map
