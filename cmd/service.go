@@ -32,6 +32,7 @@ type ServiceContext struct {
 	LawReserveEmail    string
 	HTTPClient         *http.Client
 	FastHTTPClient     *http.Client
+	SlowHTTPClient     *http.Client
 	SMTP               SMTPConfig
 }
 
@@ -76,6 +77,10 @@ func intializeService(version string, cfg *ServiceConfig) (*ServiceContext, erro
 	ctx.FastHTTPClient = &http.Client{
 		Transport: defaultTransport,
 		Timeout:   5 * time.Second,
+	}
+	ctx.SlowHTTPClient = &http.Client{
+		Transport: defaultTransport,
+		Timeout:   15 * time.Second,
 	}
 	ctx.initMapLookups()
 

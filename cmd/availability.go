@@ -26,7 +26,7 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 	log.Printf("Getting availability for %s with ILS Connector...", titleID)
 
 	availabilityURL := fmt.Sprintf("%s/v4/availability/%s", svc.ILSAPI, titleID)
-	bodyBytes, ilsErr := svc.ILSConnectorGet(availabilityURL, c.GetString("jwt"), svc.HTTPClient)
+	bodyBytes, ilsErr := svc.ILSConnectorGet(availabilityURL, c.GetString("jwt"), svc.SlowHTTPClient)
 	if ilsErr != nil && ilsErr.StatusCode != 404 {
 		log.Printf("ERROR: ILS Connector failure: %+v", ilsErr)
 		c.String(ilsErr.StatusCode, "There was a problem retrieving availability. Please try again later.")
