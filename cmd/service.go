@@ -80,7 +80,7 @@ func intializeService(version string, cfg *ServiceConfig) (*ServiceContext, erro
 	}
 	ctx.SlowHTTPClient = &http.Client{
 		Transport: defaultTransport,
-		Timeout:   20 * time.Second,
+		Timeout:   30 * time.Second,
 	}
 	ctx.initMapLookups()
 
