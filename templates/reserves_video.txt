@@ -43,7 +43,3 @@ Notes: {{ $item.Notes }}
 Virgo URL: {{ $item.VirgoURL }}
 {{ end -}}
 _______________________________________________________________________
-{{ header .MaxAvail }}
-{{- range $index, $item := .Video }}
-{{ row $index "-" $item -}}
-{{ end -}}

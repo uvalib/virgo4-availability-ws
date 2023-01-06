@@ -416,6 +416,7 @@ func (svc *ServiceContext) createCourseReserves(c *gin.Context) {
 	funcs := template.FuncMap{"add": func(x, y int) int {
 		return x + y
 	}, "header": func(cnt int) string {
+		// Header and row funcs can potentially be removed
 		out := "|#|Title|Reserve Library|Loan Period|Notes|Virgo URL|"
 		for i := 0; i < cnt; i++ {
 			out += fmt.Sprintf("Library%d|Location%d|Availability%d|Call Number%d|", i, i, i, i)

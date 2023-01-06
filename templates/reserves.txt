@@ -33,7 +33,3 @@ Notes: {{ $item.Notes }}
 Virgo URL: {{ $item.VirgoURL }}
 {{ end -}}
 _______________________________________________________________________
-{{ header .MaxAvail }}
-{{- range $index, $item := .NonVideo }}
-{{ row $index $reserveLib $item -}}
-{{ end -}}
