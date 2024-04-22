@@ -58,13 +58,13 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 	if solrDoc != nil {
 		v4Claims, _ := getJWTClaims(c)
 		if v4Claims.HomeLibrary == "HEALTHSCI" {
-			svc.updateHSLScanOptions(titleID, solrDoc, &availResp)
+			svc.updateHSLScanOptions(solrDoc, &availResp)
 		}
 		if v4Claims.CanPlaceReserve {
-			svc.addStreamingVideoReserve(titleID, solrDoc, &availResp)
+			svc.addStreamingVideoReserve(solrDoc, &availResp)
 		}
 
-		svc.appendAeonRequestOptions(titleID, solrDoc, &availResp)
+		svc.appendAeonRequestOptions(solrDoc, &availResp)
 		svc.removeETASRequestOptions(titleID, solrDoc, &availResp)
 	}
 	svc.addMapInfo(availResp.Availability.Items)
@@ -94,7 +94,7 @@ func (svc *ServiceContext) getSolrDoc(id string) *SolrDocument {
 	return &solrDoc
 }
 
-func (svc *ServiceContext) updateHSLScanOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {
+func (svc *ServiceContext) updateHSLScanOptions(solrDoc *SolrDocument, result *AvailabilityData) {
 	log.Printf("Updating scan options for HSL user")
 	// remove existing scan
 	for i, opt := range result.Availability.RequestOptions {
@@ -148,7 +148,7 @@ func openURLQuery(baseURL string, doc *SolrDocument) string {
 
 // Adds option for course reserves video request for streaming video items
 // This could be Sirsi "Internet materials", Avalon, Swank, etc.
-func (svc *ServiceContext) addStreamingVideoReserve(id string, solrDoc *SolrDocument, result *AvailabilityData) {
+func (svc *ServiceContext) addStreamingVideoReserve(solrDoc *SolrDocument, result *AvailabilityData) {
 
 	if (solrDoc.Pool[0] == "video" && contains(solrDoc.Location, "Internet materials")) ||
 		contains(solrDoc.Source, "Avalon") {
@@ -169,7 +169,7 @@ func (svc *ServiceContext) addStreamingVideoReserve(id string, solrDoc *SolrDocu
 }
 
 // Appends Aeon request to availability response
-func (svc *ServiceContext) appendAeonRequestOptions(id string, solrDoc *SolrDocument, result *AvailabilityData) {
+func (svc *ServiceContext) appendAeonRequestOptions(solrDoc *SolrDocument, result *AvailabilityData) {
 
 	processSCAvailabilityStored(result, solrDoc)
 

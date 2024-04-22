@@ -25,7 +25,7 @@ type requestItem struct {
 	Pool             string             `json:"pool"`
 	IsVideo          bool               `json:"isVideo"`
 	CatalogKey       string             `json:"catalogKey"`
-	CallNumber       string             `json:"callNumber"`
+	CallNumber       []string           `json:"callNumber"`
 	Title            string             `json:"title"`
 	Author           string             `json:"author"`
 	Period           string             `json:"period"`
@@ -397,19 +397,18 @@ func (svc *ServiceContext) createCourseReserves(c *gin.Context) {
 
 	// Iterate thru all of the requested items, pull availability and stuff it into
 	// an array based on type. Separate emails will go out for video / non-video
-	for idx := range reserveReq.Items {
-		itm := &reserveReq.Items[idx]
-		itm.VirgoURL = fmt.Sprintf("%s/sources/%s/items/%s", svc.VirgoURL, itm.Pool, itm.CatalogKey)
-		svc.getItemAvailability(itm, c.GetString("jwt"))
-		if len(itm.Availability) > reserveReq.MaxAvail {
-			reserveReq.MaxAvail = len(itm.Availability)
+	for _, item := range reserveReq.Items {
+		item.VirgoURL = fmt.Sprintf("%s/sources/%s/items/%s", svc.VirgoURL, item.Pool, item.CatalogKey)
+		svc.getItemAvailability(&item, c.GetString("jwt"))
+		if len(item.Availability) > reserveReq.MaxAvail {
+			reserveReq.MaxAvail = len(item.Availability)
 		}
-		if itm.IsVideo {
-			log.Printf("INFO: %s : %s is a video", itm.CatalogKey, itm.Title)
-			reserveReq.Video = append(reserveReq.Video, itm)
+		if item.IsVideo {
+			log.Printf("INFO: %s : %s is a video", item.CatalogKey, item.Title)
+			reserveReq.Video = append(reserveReq.Video, &item)
 		} else {
-			log.Printf("INFO: %s : %s is not a video", itm.CatalogKey, itm.Title)
-			reserveReq.NonVideo = append(reserveReq.NonVideo, itm)
+			log.Printf("INFO: %s : %s is not a video", item.CatalogKey, item.Title)
+			reserveReq.NonVideo = append(reserveReq.NonVideo, &item)
 		}
 	}
 
