@@ -232,8 +232,8 @@ func createAeonItemOptions(result *AvailabilityData, doc *SolrDocument) []ItemOp
 					notes += (strings.TrimSpace(note) + ";\n")
 				}
 				// truncate
-				if len(notes) > 999 {
-					notes = notes[:999]
+				if len(notes) > 700 {
+					notes = notes[:700]
 				}
 
 			} else {
