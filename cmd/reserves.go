@@ -345,13 +345,14 @@ func (svc *ServiceContext) validateCourseReserves(c *gin.Context) {
 	}
 
 	log.Printf("INFO: validate course reserve items %v", req.Items)
-	url := fmt.Sprintf("%s/v4/course_reserves/validate", svc.ILSAPI)
+	url := fmt.Sprintf("%s/course_reserves/validate", svc.ILSAPI)
 	bodyBytes, ilsErr := svc.ILSConnectorPost(url, req, c.GetString("jwt"))
 	if ilsErr != nil {
 		c.String(ilsErr.StatusCode, ilsErr.Message)
 		return
 	}
-	var resp []*validateResponse
+
+	var resp []validateResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
 		log.Printf("ERROR: unable to parse reserve search: %s", err.Error())
 		c.String(http.StatusInternalServerError, err.Error())
@@ -364,14 +365,14 @@ func (svc *ServiceContext) validateCourseReserves(c *gin.Context) {
 	v4Claims, _ := getJWTClaims(c)
 	if v4Claims.CanPlaceReserve {
 		log.Printf("INFO: check if any items are type videoReserve")
-		for _, item := range resp {
+		for idx, item := range resp {
 			if item.Reserve == false || item.IsVideo == false {
 				solrDoc := svc.getSolrDoc(item.ID)
 				if solrDoc != nil {
 					if (solrDoc.Pool[0] == "video" && contains(solrDoc.Location, "Internet materials")) || contains(solrDoc.Source, "Avalon") {
 						log.Printf("INFO: %s is a video", item.ID)
-						item.IsVideo = true
-						item.Reserve = true
+						resp[idx].IsVideo = true
+						resp[idx].Reserve = true
 					}
 				}
 			}
@@ -476,7 +477,7 @@ func (svc *ServiceContext) createCourseReserves(c *gin.Context) {
 func (svc *ServiceContext) getItemAvailability(reqItem *requestItem, jwt string) {
 	log.Printf("INFO: check if item %s is available for course reserve", reqItem.CatalogKey)
 	reqItem.Availability = make([]availabilityInfo, 0)
-	availabilityURL := fmt.Sprintf("%s/v4/availability/%s", svc.ILSAPI, reqItem.CatalogKey)
+	availabilityURL := fmt.Sprintf("%s/availability/%s", svc.ILSAPI, reqItem.CatalogKey)
 	bodyBytes, ilsErr := svc.ILSConnectorGet(availabilityURL, jwt, svc.HTTPClient)
 	if ilsErr != nil {
 		log.Printf("WARN: Unable to get availabilty info for reserve %s: %s", reqItem.CatalogKey, ilsErr.Message)
