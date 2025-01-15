@@ -108,7 +108,6 @@ func (svc *ServiceContext) getVersion(c *gin.Context) {
 
 // HealthCheck reports the health of the server
 func (svc *ServiceContext) healthCheck(c *gin.Context) {
-	log.Printf("Got healthcheck request")
 	type hcResp struct {
 		Healthy bool   `json:"healthy"`
 		Message string `json:"message,omitempty"`

@@ -351,6 +351,7 @@ func (svc *ServiceContext) validateCourseReserves(c *gin.Context) {
 		c.String(ilsErr.StatusCode, ilsErr.Message)
 		return
 	}
+	log.Printf("INFO: raw ilsconnect response: %s", bodyBytes)
 
 	var resp []validateResponse
 	if err := json.Unmarshal(bodyBytes, &resp); err != nil {
