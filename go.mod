@@ -10,7 +10,7 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/go-querystring v1.1.0
 	github.com/lib/pq v1.10.9
-	github.com/uvalib/virgo4-jwt v1.0.0
+	github.com/uvalib/virgo4-jwt v1.1.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 
