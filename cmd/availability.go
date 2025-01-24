@@ -39,7 +39,7 @@ func (svc *ServiceContext) getAvailability(c *gin.Context) {
 		return
 	}
 
-	log.Printf("INFO: raw ilsconnector response: %s", bodyBytes)
+	//log.Printf("INFO: raw ilsconnector response: %s", bodyBytes)
 
 	// Convert from json
 	availResp := AvailabilityData{}
