@@ -6,7 +6,7 @@ toolchain go1.23.4
 
 require (
 	github.com/gin-contrib/cors v1.7.3
-	github.com/gin-contrib/gzip v1.2.0
+	github.com/gin-contrib/gzip v1.2.2
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/go-querystring v1.1.0
 	github.com/lib/pq v1.10.9
@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/bytedance/sonic v1.12.7 // indirect
+	github.com/bytedance/sonic v1.12.8 // indirect
 	github.com/bytedance/sonic/loader v0.2.3 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
